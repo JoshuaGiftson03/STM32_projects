@@ -12,29 +12,31 @@
 #define FFT_SIZE 1024
 #define GAIN 2500
 #define FILTER_TAP_NUM 32
-#define FFT_SCALE_FACTOR (2.0f/FFT_SIZE)  // Window compensation
+#define FFT_SCALE_FACTOR (2.0f/FFT_SIZE)
 
-
-// Algorithm parameters
 #define MIN_FREQ 20
-#define MAX_FREQ 8000  // Max based on 16kHz sampling rate
+#define MAX_FREQ 8000
 #define SAMPLING_RATE 8000.0f
 
-//Detection parameters
+//Calibration
 #define CALIBRATION_TIME 10000
-float32_t prev_average_magnitude = 0;
-float32_t roomthreshold = 0;
-float32_t average_magnitude = 0;
 static float32_t calibration_sum = 0.0f;
 static uint32_t calibration_samples = 0;
 int calibrated = 0;
+float32_t prev_average_magnitude = 0;
+
+char temp[64];
 // Add these at the top
 #define VOCAL_START_BIN 7   // 50Hz (7*7.8Hz = 54.6Hz)
 #define VOCAL_END_BIN 39    // 300Hz (39*7.8Hz = 304.2Hz)
-#define BIN_GROUP_SIZE 3    // Check groups of 3 consecutive bins
-#define SPIKE_THRESHOLD 2.5 // 250% increase from baseline
+#define BIN_GROUP_SIZE 3
+#define SPIKE_THRESHOLD 4   // Adjust based on the room noise
 uint8_t spike_counter = 0;
+#define NO_OF_SPIKES 3
 
+//Alert transmission
+volatile uint8_t alert_pending = 0;
+#define UART_FLUSH_DELAY 20
 
 
 int32_t i2s_rx_buffer[2][BUFFER_SIZE];
@@ -211,7 +213,7 @@ int main(void) {
                     spike_counter++;
 
                     // Require 3 consecutive detections
-                    if(spike_counter >= 3) {
+                    if(spike_counter >= NO_OF_SPIKES) {
                         float current_avg = current_spike_sum/spiked_groups;
                         char alert_msg[64];
                         snprintf(alert_msg, sizeof(alert_msg),"ALERT:%.2f/%.2f\r\n",
@@ -225,7 +227,6 @@ int main(void) {
                     spike_counter = spike_counter > 0 ? spike_counter-1 : 0;
                 }
 
-                // Adaptive baseline update (slowly follow quiet moments)
                 if(spike_counter == 0) {
                     prev_average_magnitude = 0.95f * prev_average_magnitude + 0.05f * current_spike_sum;
                 }
