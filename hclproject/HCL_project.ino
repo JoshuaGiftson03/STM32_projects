@@ -77,7 +77,8 @@ String webpage = R"=====(
           <p>Intensity: ${data.de.toFixed(2)}</p>
           <p>Threshold: ${data.threshold.toFixed(2)}</p>
         `;
-        setTimeout(() => alertBox.style.display = 'none', 2000);
+        // Changed timeout to 3000ms (3 seconds)
+        setTimeout(() => alertBox.style.display = 'none', 3000);
       }
       else {
         Plotly.update('chart', {
@@ -98,21 +99,20 @@ void processBuffer(String &buf) {
     if(millis() - lastUpdate < UPDATE_INTERVAL) return;
     lastUpdate = millis();
 
-    if(buf.startsWith("ALERT:")) {
-        // Parse alert data
-        int colonPos = buf.indexOf(':');
-        int slashPos = buf.indexOf('/');
-        
-        float current = buf.substring(colonPos+1, slashPos).toFloat();
-        float average = buf.substring(slashPos+1).toFloat();
-        
-        // Send to web interface
-        String json = "{\"alert\":1,\"current\":" + String(current) + 
-                     ",\"average\":" + String(average) + "}";
-        webSocket.broadcastTXT(json);
-        Serial.println("Alert received");
-        return;
-    }
+if(buf.startsWith("ALERT:")) {
+    // Parse alert data
+    int colonPos = buf.indexOf(':');
+    int slashPos = buf.indexOf('/');
+    
+    float current = buf.substring(colonPos+1, slashPos).toFloat();
+    float average = buf.substring(slashPos+1).toFloat();
+    
+    // Corrected WebSocket message format
+    String json = "{\"type\":\"shout\",\"de\":" + String(current) + 
+                 ",\"threshold\":" + String(average) + "}";
+    webSocket.broadcastTXT(json);
+    return;
+}
 
   // Process normal FFT data
   if(buf.length() < 5) {
